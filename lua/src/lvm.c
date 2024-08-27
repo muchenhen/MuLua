@@ -1264,36 +1264,43 @@ void luaV_finishOp(lua_State* L)
 
 void luaV_execute(lua_State* L, CallInfo* ci)
 {
-    LClosure* cl;
-    TValue* k;
-    StkId base;
-    const Instruction* pc;
-    int trap;
+    LClosure* cl;          // 
+    TValue* k;             // 指向常量表
+    StkId base;            // 函数栈基址
+    const Instruction* pc; // 指向当前指令
+    int trap;              // 用于处理hook
 #if LUA_USE_JUMPTABLE
 #include "ljumptab.h"
 #endif
 startfunc:
     trap = L->hookmask;
 returning: /* trap already set */
-    cl = ci_func(ci);
-    k = cl->p->k;
-    pc = ci->u.l.savedpc;
+    cl = ci_func(ci); // 获取当前调用信息对应的lua闭包
+    k = cl->p->k;     // 设置k指向当前函数的常量表
+    pc = ci->u.l.savedpc; // 恢复保存的程序计数器
     if (l_unlikely(trap))
         trap = luaG_tracecall(L);
-    base = ci->func.p + 1;
+    base = ci->func.p + 1; // 
     /* main loop of interpreter */
     for (;;)
     {
-        Instruction i; /* instruction being executed */
-        vmfetch();
+        Instruction i; /* instruction being executed */ // 存储当前要执行的指令
+        vmfetch(); // 从当前程序计数器获取指令
 #if 0
       /* low-level line tracing for debugging Lua */
       printf("line: %d\n", luaG_getfuncline(cl->p, pcRel(pc, cl->p)));
 #endif
-        lua_assert(base == ci->func.p + 1);
-        lua_assert(base <= L->top.p && L->top.p <= L->stack_last.p);
+        lua_assert(base == ci->func.p + 1); // 确保 base 指针正确指向当前函数的栈基址 验证 base 是否指向函数对象后的下一个位置（即第一个参数或局部变量）
+        lua_assert(base <= L->top.p && L->top.p <= L->stack_last.p); // 确保栈顶（L->top.p）在有效范围内：不低于当前函数的基址，不超过栈的最大限制
         /* invalidate top for instructions not expecting it */
-        lua_assert(isIT(i) || (cast_void(L->top.p = base), 1));
+        lua_assert(isIT(i) || (cast_void(L->top.p = base), 1));// ？
+
+        /*
+        * GET_OPCODE(i)
+        * 从指令 i 中提取操作码
+        * 
+        * 获取操作码后，虚拟机会跳转到相应的代码块
+        */
         vmdispatch(GET_OPCODE(i))
         {
             vmcase(OP_MOVE)

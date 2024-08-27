@@ -135,6 +135,15 @@
       <Project>{0188372d-3f6d-42c2-b50c-05af83bcab9c}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\kslua_natvis\gcobject.natvis" />
+    <Natvis Include="..\kslua_natvis\global_state.natvis" />
+    <Natvis Include="..\kslua_natvis\lua_state.natvis" />
+    <Natvis Include="..\kslua_natvis\node.natvis" />
+    <Natvis Include="..\kslua_natvis\table.natvis" />
+    <Natvis Include="..\kslua_natvis\tstring.natvis" />
+    <Natvis Include="..\kslua_natvis\tvalue.natvis" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

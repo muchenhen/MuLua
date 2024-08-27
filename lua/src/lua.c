@@ -257,16 +257,22 @@ static int pushargs(lua_State* L)
 
 static int handle_script(lua_State* L, char** argv)
 {
+    // status 用于存储各种操作的结果状态
     int status;
+    // fname  初始化为 argv[0]，即传入的第一个参数，通常是脚本文件名
     const char* fname = argv[0];
+
     if (strcmp(fname, "-") == 0 && strcmp(argv[-1], "--") != 0)
         fname = NULL; /* stdin */
+
     status = luaL_loadfile(L, fname);
+
     if (status == LUA_OK)
     {
         int n = pushargs(L); /* push arguments to script */
         status = docall(L, n, LUA_MULTRET);
     }
+
     return report(L, status);
 }
 
@@ -649,52 +655,97 @@ static void doREPL(lua_State* L)
 */
 static int pmain(lua_State* L)
 {
+    /*
+    * 从 Lua 栈中获取命令行参数的数量 (argc) 和参数数组 (argv) 这些参数是在调用 pmain 之前被压入栈中的
+    */
     int argc = (int)lua_tointeger(L, 1);
     char** argv = (char**)lua_touserdata(L, 2);
+
+    /*
+    * ollectargs 函数解析命令行参数，返回一个位标志 args
+    * script 是主脚本在 argv 中的索引（如果存在）
+     * optlim 是第一个不是option的 argv 的索引 确定option的结束位置 option指的是-e -l -i -v -E -W等命令行参数
+    */
     int script;
     int args = collectargs(argv, &script);
     int optlim = (script > 0) ? script : argc; /* first argv not an option */
+
+    // 确保解释器版本正确
     luaL_checkversion(L);                      /* check that interpreter has correct version */
+
+    // 如果解析参数时出错，打印使用说明并退出
     if (args == has_error)
     {                              /* bad arg? */
         print_usage(argv[script]); /* 'script' has index of bad arg. */
         return 0;
     }
+
+    // 如果指定了 -v 选项，打印版本信息
     if (args & has_v) /* option '-v'? */
         print_version();
+
+    // 如果指定了 -E 选项，设置一个标志以忽略环境变量。
     if (args & has_E)
     {                          /* option '-E'? */
         lua_pushboolean(L, 1); /* signal for libraries to ignore env. vars. */
         lua_setfield(L, LUA_REGISTRYINDEX, "LUA_NOENV");
     }
+
+    // 加载所有标准库
     luaL_openlibs(L);                      /* open standard libraries */
+
+    // 创建一个包含命令行参数的lua表
     createargtable(L, argv, argc, script); /* create table 'arg' */
+
+    // 重启垃圾收集器并设置为分代模式。
     lua_gc(L, LUA_GCRESTART);              /* start GC... */
     lua_gc(L, LUA_GCGEN, 0, 0);            /* ...in generational mode */
+
+    // 如果没有指定 -E 选项，运行 LUA_INIT
     if (!(args & has_E))
     {                                    /* no option '-E'? */
         if (handle_luainit(L) != LUA_OK) /* run LUA_INIT */
             return 0;                    /* error running LUA_INIT */
     }
+
+    // 如果指定了 -l 或 -e 的命令行参数，执行指定的代码
     if (!runargs(L, argv, optlim)) /* execute arguments -e and -l */
         return 0;                  /* something failed */
+
+    // 如果指定了主脚本，执行主脚本
     if (script > 0)
     { /* execute main script (if there is one) */
         if (handle_script(L, argv + script) != LUA_OK)
             return 0; /* interrupt in case of error */
     }
+
+    // 如果指定了 -i 选项，进入 REPL（交互）模式。
     if (args & has_i) /* -i option? */
-        doREPL(L);    /* do read-eval-print loop */
+    {
+        doREPL(L); /* do read-eval-print loop */
+    }
     else if (script < 1 && !(args & (has_e | has_v)))
-    { /* no active option? */
+    { 
+        // 如果没有主脚本且没有其他活动选项
+        /* no active option? */
         if (lua_stdin_is_tty())
-        { /* running in interactive mode? */
+        { 
+            // 如果是 TTY（终端），打印版本并进入 REPL 模式
+            /* running in interactive mode? */
             print_version();
             doREPL(L); /* do read-eval-print loop */
         }
         else
+        {
+            // 否则，从标准输入读取并执行代码 执行标准输入作为文件
             dofile(L, NULL); /* executes stdin as a file */
+        }
     }
+
+    /*
+    * 向栈中压入 true，表示无错误。
+    * 返回 1，表示成功执行。
+    */
     lua_pushboolean(L, 1); /* signal no errors */
     return 1;
 }
